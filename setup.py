@@ -14,18 +14,18 @@ from os import path, environ
 # Python 3 only projects can skip this import
 from io import open
 
-if environ.get('TRAVIS_TAG'):
-    version = environ['TRAVIS_TAG'].replace('v', '')
-elif environ.get('CI_COMMIT_TAG'):
-    version = environ['CI_COMMIT_TAG'].replace('v', '')
-elif environ.get('GITHUB_REF'):
+# if environ.get('TRAVIS_TAG'):
+#     version = environ['TRAVIS_TAG'].replace('v', '')
+# elif environ.get('CI_COMMIT_TAG'):
+#     version = environ['CI_COMMIT_TAG'].replace('v', '')
+# elif environ.get('GITHUB_REF'):
 
-    if not environ['GITHUB_REF'].startswith('refs/tags/v'):
-        raise ValueError('Incorrect tag format {}'.format(environ['GITHUB_REF']))
+#     if not environ['GITHUB_REF'].startswith('refs/tags/v'):
+#         raise ValueError('Incorrect tag format {}'.format(environ['GITHUB_REF']))
 
-    version = environ['GITHUB_REF'].replace('refs/tags/v', '')
-else:
-    raise ValueError('Missing commit tag, can\'t set version')
+#     version = environ['GITHUB_REF'].replace('refs/tags/v', '')
+# else:
+#     raise ValueError('Missing commit tag, can\'t set version')
 
 here = path.abspath(path.dirname(__file__))
 
@@ -48,7 +48,7 @@ setup(
     # There are some restrictions on what makes a valid project name
     # specification here:
     # https://packaging.python.org/specifications/core-metadata/#name
-    name='substrate-interface',  # Required
+    name='polymath-substrate-interface',  # Required
 
     # Versions should comply with PEP 440:
     # https://www.python.org/dev/peps/pep-0440/
@@ -56,12 +56,12 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version=version,  # Required
+    version='0.1.1',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#summary
-    description='Library for interfacing with a Substrate node',  # Optional
+    description='Library for interfacing with a Polymesh node',  # Optional
 
     # This is an optional longer description of your project that represents
     # the body of text which users will see when they visit PyPI.
@@ -97,7 +97,7 @@ setup(
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='legal@openaware.com',  # Optional
+    # author_email='',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #
@@ -128,7 +128,7 @@ setup(
     # project page. What does your project relate to?
     #
     # Note that this is a string of words separated by whitespace, not a list.
-    keywords='interface polkascan polkadot substrate blockchain rpc',  # Optional
+    keywords='interface polkascan polkadot substrate blockchain rpc polymesh',  # Optional
 
     # You can just specify package directories manually here if your project is
     # simple. Or you can use find_packages().
@@ -167,7 +167,7 @@ setup(
         'requests==2.22.0',
         'urllib3==1.25.3',
         'xxhash==1.3.0',
-        'scalecodec>=0.9.26'
+        'polymath-scalecodec>=0.1.2'
     ],
 
     # List additional groups of dependencies here (e.g. development
