@@ -56,7 +56,7 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1.1',  # Required
+    version='0.2.0',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -93,7 +93,7 @@ setup(
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='openAware B.V.',  # Optional
+    author='Polymath',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
@@ -167,7 +167,7 @@ setup(
         'requests==2.22.0',
         'urllib3==1.25.3',
         'xxhash==1.3.0',
-        'polymath-scalecodec>=0.1.2'
+        'polymath-scalecodec>=0.2.0'
     ],
 
     # List additional groups of dependencies here (e.g. development
