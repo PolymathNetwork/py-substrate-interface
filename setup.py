@@ -56,7 +56,7 @@ setup(
     # For a discussion on single-sourcing the version across setup.py and the
     # project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.3.6',  # Required
+    version='0.3.7',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -167,7 +167,7 @@ setup(
         'requests==2.22.0',
         'urllib3==1.25.3',
         'xxhash==1.3.0',
-        'polymath-scalecodec>=0.3.6'
+        'polymath-scalecodec>=0.3.7'
     ],
 
     # List additional groups of dependencies here (e.g. development
