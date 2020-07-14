@@ -167,7 +167,7 @@ setup(
         'requests==2.22.0',
         'urllib3==1.25.3',
         'xxhash==1.3.0',
-        'polymath-scalecodec>=0.3.20b3'
+        'polymath-scalecodec>=0.3.20'
     ],
 
     # List additional groups of dependencies here (e.g. development
