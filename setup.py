@@ -120,8 +120,8 @@ setup(
         # These classifiers are *not* checked by 'pip install'. See instead
         # 'python_requires' below.
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
 
     # This field adds keywords for your project which will appear on the
@@ -163,11 +163,14 @@ setup(
         'base58==1.0.3',
         'certifi==2019.6.16',
         'chardet==3.0.4',
+        'docker==4.2.0',
         'idna==2.8',
         'requests==2.22.0',
         'urllib3==1.25.3',
         'xxhash==1.3.0',
-        'polymath-scalecodec>=0.3.20'
+        'polymath-scalecodec>=0.4.0a1',
+        'py-sr25519-bindings>=0.1.2',
+        'py-bip39-bindings>=0.1.4'
     ],
 
     # List additional groups of dependencies here (e.g. development
