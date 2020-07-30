@@ -205,7 +205,7 @@ class SubstrateInterface:
 
         self.sub_key = sub_key
 
-        self.debug = True
+        self.debug = False
 
     def debug_message(self, message):
         logger.debug(message)
@@ -682,57 +682,43 @@ class SubstrateInterface:
 
         """
 
-        print('Entre 1')
         if block_id and block_hash:
             raise ValueError('Cannot provide block_hash and block_id at the same time')
 
-        print('Sigo 2')
         # Check if runtime state already set to current block
         if (block_hash and block_hash == self.block_hash) or (block_id and block_id == self.block_id):
             return
 
-        print('Sigo 3')
         if block_id is not None:
             block_hash = self.get_block_hash(block_id)
 
-        print('Sigo 4')
         self.block_hash = block_hash
         self.block_id = block_id
 
-        print('Sigo 5')
         runtime_info = self.get_block_runtime_version(block_hash=self.block_hash)
 
-        print('Sigo 6')
         # Check if runtime state already set to current block
         if runtime_info.get("specVersion") == self.runtime_version:
             return
 
-        print('Sigo 7')
         self.runtime_version = runtime_info.get("specVersion")
         self.transaction_version = runtime_info.get("transactionVersion")
 
-        print('Sigo 8')
         # Set active runtime version
         RuntimeConfiguration().set_active_spec_version_id(self.runtime_version)
 
-        print('Sigo 9')
         if self.runtime_version not in self.metadata_cache and self.cache_region:
-            print('Sigo 10')
             # Try to retrieve metadata from Dogpile cache
             cached_metadata = self.cache_region.get('METADATA_{}'.format(self.runtime_version))
             if cached_metadata:
-                print('Sigo 11')
                 self.debug_message('Retrieved metadata for {} from Redis'.format(self.runtime_version))
                 self.metadata_cache[self.runtime_version] = cached_metadata
 
-        print('Sigo 12')
         if self.runtime_version in self.metadata_cache:
-            print('Sigo 13')
             # Get metadata from cache
             self.debug_message('Retrieved metadata for {} from memory'.format(self.runtime_version))
             self.metadata_decoder = self.metadata_cache[self.runtime_version]
         else:
-            print('Sigo 14')
             self.metadata_decoder = self.get_block_metadata(block_hash=self.block_hash, decode=True)
             self.debug_message('Retrieved metadata for {} from Substrate node'.format(self.runtime_version))
 
@@ -740,7 +726,6 @@ class SubstrateInterface:
             self.metadata_cache[self.runtime_version] = self.metadata_decoder
 
             if self.cache_region:
-                print('Sigo 15')
                 self.debug_message('Stored metadata for {} in Redis'.format(self.runtime_version))
                 self.cache_region.set('METADATA_{}'.format(self.runtime_version), self.metadata_decoder)
 
