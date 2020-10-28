@@ -1,3 +1,19 @@
+# Python Substrate Interface Library
+#
+# Copyright 2018-2020 Stichting Polkascan (Polkascan Foundation).
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """A setuptools based setup module.
 
 See:
@@ -113,7 +129,7 @@ setup(
         'Intended Audience :: Developers',
 
         # Pick your license as you wish
-        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
+        'License :: OSI Approved :: Apache Software License',
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
@@ -158,19 +174,19 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'asyncio==3.4.3',
-        'websockets==8.1',
-        'base58==1.0.3',
-        'certifi==2019.6.16',
-        'chardet==3.0.4',
-        'docker==4.2.0',
-        'idna==2.8',
-        'requests==2.22.0',
-        'urllib3==1.25.3',
-        'xxhash==1.3.0',
+        'websockets>=8.1',
+        'base58>=2.0.1',
+        'certifi>=2019.6.16',
+        'chardet>=3.0.4',
+        'docker>=4.2.0',
+        'idna>=2.8',
+        'requests>=2.24.0',
+        'urllib3>=1.25.10',
+        'xxhash>=1.3.0',
         'polymath-scalecodec>=0.5.0a2',
         'py-sr25519-bindings>=0.1.2',
-        'py-bip39-bindings>=0.1.4'
+        'py-ed25519-bindings>=0.1.1',
+        'py-bip39-bindings>=0.1.6'
     ],
 
     # List additional groups of dependencies here (e.g. development
