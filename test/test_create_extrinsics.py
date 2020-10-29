@@ -1,44 +1,22 @@
-#  Polkascan Substrate Interface GUI
+# Python Substrate Interface Library
 #
-#  Copyright 2018-2020 openAware BV (NL).
-#  This file is part of Polkascan.
+# Copyright 2018-2020 Stichting Polkascan (Polkascan Foundation).
 #
-#  Polkascan is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-#  Polkascan is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
+# http://www.apache.org/licenses/LICENSE-2.0
 #
-#  You should have received a copy of the GNU General Public License
-#  along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
-#
-#  test_create_extrinsics.py
-#
-
-#  Polkascan Substrate Interface GUI
-#
-#
-#  Polkascan is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  Polkascan is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
-#
-#  test_create_extrinsics.py
-#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import unittest
+
+from scalecodec.type_registry import load_type_registry_preset
 from substrateinterface import SubstrateInterface, Keypair, SubstrateRequestException
 from test import settings
 
@@ -57,6 +35,22 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
             url=settings.POLKADOT_NODE_URL,
             address_type=0,
             type_registry_preset='polkadot'
+        )
+
+    def test_compatibility_polkadot_runtime(self):
+        type_reg = load_type_registry_preset("polkadot")
+
+        runtime_data = self.polkadot_substrate.rpc_request('state_getRuntimeVersion', [])
+        self.assertLessEqual(
+            runtime_data['result']['specVersion'], type_reg.get('runtime_id'), 'Current runtime is incompatible'
+        )
+
+    def test_compatibility_kusama_runtime(self):
+        type_reg = load_type_registry_preset("kusama")
+
+        runtime_data = self.polkadot_substrate.rpc_request('state_getRuntimeVersion', [])
+        self.assertLessEqual(
+            runtime_data['result']['specVersion'], type_reg.get('runtime_id'), 'Current runtime is incompatible'
         )
 
     def test_create_balance_transfer(self):
@@ -93,6 +87,47 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
             except SubstrateRequestException as e:
                 # Extrinsic should be successful if account had balance, eitherwise 'Bad proof' error should be raised
                 self.assertEqual(e.args[0]['data'], 'Inability to pay some fees (e.g. account balance too low)')
+
+    def test_create_mortal_extrinsic(self):
+        # Create new keypair
+        mnemonic = Keypair.generate_mnemonic()
+        keypair = Keypair.create_from_mnemonic(mnemonic, address_type=2)
+
+        for substrate in [self.kusama_substrate, self.polkadot_substrate]:
+
+            # Create balance transfer call
+            call = substrate.compose_call(
+                call_module='Balances',
+                call_function='transfer',
+                call_params={
+                    'dest': 'EaG2CRhJWPb7qmdcJvy3LiWdh26Jreu9Dx6R1rXxPmYXoDk',
+                    'value': 2 * 10 ** 3
+                }
+            )
+
+            extrinsic = substrate.create_signed_extrinsic(call=call, keypair=keypair, era={'period': 64})
+
+            try:
+                substrate.submit_extrinsic(extrinsic)
+
+                self.fail('Should raise no funds to pay fees exception')
+
+            except SubstrateRequestException as e:
+                # Extrinsic should be successful if account had balance, eitherwise 'Bad proof' error should be raised
+                self.assertEqual(e.args[0]['data'], 'Inability to pay some fees (e.g. account balance too low)')
+
+    def test_create_unsigned_extrinsic(self):
+        
+        call = self.kusama_substrate.compose_call(
+            call_module='Timestamp',
+            call_function='set',
+            call_params={
+                'now': 1602857508000,
+            }
+        )
+
+        extrinsic = self.kusama_substrate.create_unsigned_extrinsic(call)
+        self.assertEqual(str(extrinsic.data), '0x280402000ba09cc0317501')
 
 
 if __name__ == '__main__':

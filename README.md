@@ -8,8 +8,9 @@
 Python Polymath Substrate Interface Library
 
 ## Description
-
-This library specializes in interfacing with a Polymath Substrate node, providing additional convenience methods to deal with Polymath SCALE encoding/decoding (the default output and input format of the Substrate JSONRPC), metadata parsing, type registry management and versioning of types.
+This library specializes in interfacing with a Polymesh node, providing additional convenience methods to deal with
+SCALE encoding/decoding (the default output and input format of the Substrate JSONRPC), metadata parsing, type registry
+management and versioning of types.
 
 ## Documentation
 
@@ -21,24 +22,65 @@ https://polkascan.github.io/py-substrate-interface/
 pip install polymath-substrate-interface
 ```
 
-## Examples
-
-Simple example, initialize interface and get head block hash of Kusama chain:
-
 ### Initialization
+
+The following examples show how to initialize for Polymesh chain:
+
+#### Substrate Node Template
+Compatible with https://github.com/substrate-developer-hub/substrate-node-template 
 
 ```python
 substrate = SubstrateInterface(
-    url="wss://kusama-rpc.polkadot.io/",
-    address_type=2,
-    type_registry_preset='kusama'
+    url="http://127.0.0.1:9933",
+    address_type=42,
+    type_registry_preset='substrate-node-template'
 )
-
-substrate.get_chain_head()
+ 
 ```
 
-Note on support for wss, this is still quite limited at the moment as connections are not reused yet. Until support is
-improved it is prefered to use http endpoints (e.g. http://127.0.0.1:9933)
+If custom types are introduced in the Substrate chain, the following example will add compatibility by creating a custom type 
+registry JSON file and including this during initialization:
+
+```json
+{
+  "runtime_id": 2,
+  "types": {
+    "MyCustomInt": "u32",
+    "MyStruct": {
+      "type": "struct",
+      "type_mapping": [
+         ["account", "AccountId"],
+         ["message", "Vec<u8>"]
+      ]
+    }
+  },
+  "versioning": [
+  ]
+}
+```
+
+```python
+custom_type_registry = load_type_registry_file("my-custom-types.json")
+
+substrate = SubstrateInterface(
+    url="http://127.0.0.1:9933",
+    address_type=42,
+    type_registry_preset='substrate-node-template',
+    type_registry=custom_type_registry
+)
+ 
+```
+
+## Keeping type registry presets up to date
+
+When on-chain runtime upgrades occur, types used in call- or storage functions can be added or modified. Therefor it is
+important to keep the type registry presets up to date. At the moment the type registry for Polymesh is being actively maintained for this library and an check and update procedure can be triggered with:
+ 
+```python
+substrate.update_type_registry_presets()
+```   
+
+## Examples
 
 ### Get extrinsics for a certain block
 
@@ -75,7 +117,6 @@ for extrinsic in result['block']['extrinsics']:
 ```
 
 ### Make a storage call
-
 The modules and storage functions are provided in the metadata (see `substrate.get_metadata_storage_functions()`),
 parameters will be automatically converted to SCALE-bytes (also including decoding of SS58 addresses).
 
@@ -107,6 +148,17 @@ if balance_info:
         block_hash,
         balance_info.get('data').get('free', 0) / 10**12
     ))
+```
+
+Or get all the key pairs of a map:
+
+```python
+# Get all the stash and controller bondings.
+all_bonded_stash_ctrls = substrate.iterate_map(
+    module='Staking',
+    storage_function='Bonded',
+    block_hash=block_hash
+)
 ```
 
 ### Create and send signed extrinsics
@@ -141,18 +193,35 @@ try:
 
 except SubstrateRequestException as e:
     print("Failed to send: {}".format(e))
-
 ```
+
+### Create mortal extrinsics
+
+By default `immortal` extrinsics are created, which means they have an indefinite lifetime for being included in a 
+block. However it is recommended to use specify an expiry window, so you know after a certain amount of time if the 
+extrinsic is not included in a block, it will be invalidated.
+
+```python 
+extrinsic = substrate.create_signed_extrinsic(call=call, keypair=keypair, era={'period': 64})
+```
+
+The `period` specifies the number of blocks the extrinsic is valid counted from current head.
+
 
 ### Keypair creation and signing
 
 ```python
-
 mnemonic = Keypair.generate_mnemonic()
 keypair = Keypair.create_from_mnemonic(mnemonic)
 signature = keypair.sign("Test123")
 if keypair.verify("Test123", signature):
     print('Verified')
+```
+
+By default a keypair is using SR25519 cryptography, alternatively ED25519 can be explictly specified:
+
+```python
+keypair = Keypair.create_from_mnemonic(mnemonic, crypto_type=Keypair.ED25519)
 ```
 
 ### Create keypair using Subkey wrapper (using local subkey binary)
