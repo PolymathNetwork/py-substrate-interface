@@ -1,20 +1,18 @@
-# Python Substrate Interface
+# Python Substrate Interface Library
 #
-# Copyright 2018-2020 openAware BV (NL).
-# This file is part of Polkascan.
+# Copyright 2018-2020 Stichting Polkascan (Polkascan Foundation).
 #
-# Polkascan is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Polkascan is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with Polkascan. If not, see <http://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import asyncio
 import binascii
@@ -30,6 +28,7 @@ from scalecodec.base import ScaleDecoder, RuntimeConfiguration
 from scalecodec.block import ExtrinsicsDecoder, EventsDecoder, LogDigest
 from scalecodec.metadata import MetadataDecoder
 from scalecodec.type_registry import load_type_registry_preset
+from scalecodec.updater import update_type_registries
 
 from .subkey import Subkey
 from .utils.hasher import blake2_256, two_x64_concat, xxh64, xxh128, blake2_128, blake2_128_concat, identity
@@ -38,6 +37,7 @@ from .constants import *
 from .utils.ss58 import ss58_decode, ss58_encode
 from bip39 import bip39_to_mini_secret, bip39_generate
 import sr25519
+import ed25519
 
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,12 @@ logger = logging.getLogger(__name__)
 
 class Keypair:
 
-    def __init__(self, ss58_address=None, public_key=None, private_key=None, address_type=42):
+    ED25519 = 0
+    SR25519 = 1
+
+    def __init__(self, ss58_address=None, public_key=None, private_key=None, address_type=42, crypto_type=SR25519):
+
+        self.crypto_type = crypto_type
 
         if ss58_address and not public_key:
             public_key = ss58_decode(ss58_address)
@@ -67,7 +72,7 @@ class Keypair:
         if private_key:
             private_key = '0x{}'.format(private_key.replace('0x', ''))
 
-            if len(private_key) != 130:
+            if self.crypto_type == self.SR25519 and len(private_key) != 130:
                 raise ValueError('Secret key should be 64 bytes long')
 
         self.private_key = private_key
@@ -80,28 +85,46 @@ class Keypair:
         return bip39_generate(words)
 
     @classmethod
-    def create_from_mnemonic(cls, mnemonic, address_type=42):
+    def create_from_mnemonic(cls, mnemonic, address_type=42, crypto_type=SR25519):
         seed_array = bip39_to_mini_secret(mnemonic, "")
 
         keypair = cls.create_from_seed(
             seed_hex=binascii.hexlify(bytearray(seed_array)).decode("ascii"),
-            address_type=address_type
+            address_type=address_type,
+            crypto_type=crypto_type
         )
         keypair.mnemonic = mnemonic
 
         return keypair
 
     @classmethod
-    def create_from_seed(cls, seed_hex, address_type=42):
-        keypair = sr25519.pair_from_seed(bytes.fromhex(seed_hex.replace('0x', '')))
-        public_key = keypair[0].hex()
-        private_key = keypair[1].hex()
-        ss58_address = ss58_encode(keypair[0], address_type)
-        return cls(ss58_address=ss58_address, public_key=public_key, private_key=private_key, address_type=address_type)
+    def create_from_seed(cls, seed_hex, address_type=42, crypto_type=SR25519):
+
+        if crypto_type == cls.SR25519:
+            public_key, private_key = sr25519.pair_from_seed(bytes.fromhex(seed_hex.replace('0x', '')))
+        elif crypto_type == cls.ED25519:
+            private_key, public_key = ed25519.ed_from_seed(bytes.fromhex(seed_hex.replace('0x', '')))
+        else:
+            raise ValueError('crypto_type "{}" not supported'.format(crypto_type))
+
+        public_key = public_key.hex()
+        private_key = private_key.hex()
+
+        ss58_address = ss58_encode(public_key, address_type)
+
+        return cls(
+            ss58_address=ss58_address, public_key=public_key, private_key=private_key,
+            address_type=address_type, crypto_type=crypto_type
+        )
 
     @classmethod
-    def create_from_private_key(cls, private_key, public_key=None, ss58_address=None, address_type=42):
-        return cls(ss58_address=ss58_address, public_key=public_key, private_key=private_key, address_type=address_type)
+    def create_from_private_key(
+            cls, private_key, public_key=None, ss58_address=None, address_type=42, crypto_type=SR25519
+    ):
+        return cls(
+            ss58_address=ss58_address, public_key=public_key, private_key=private_key,
+            address_type=address_type, crypto_type=crypto_type
+        )
 
     def sign(self, data):
         """
@@ -124,12 +147,16 @@ class Keypair:
             data = data.encode()
 
         if not self.private_key:
-            raise ConfigurationError('No private key set to create sr25519 signatures')
+            raise ConfigurationError('No private key set to create signatures')
 
-        signature = sr25519.sign(
-            (bytes.fromhex(self.public_key[2:]), bytes.fromhex(self.private_key[2:])),
-            data
-        )
+        if self.crypto_type == self.SR25519:
+
+            signature = sr25519.sign((bytes.fromhex(self.public_key[2:]), bytes.fromhex(self.private_key[2:])), data)
+        elif self.crypto_type == self.ED25519:
+            signature = ed25519.ed_sign(bytes.fromhex(self.public_key[2:]), bytes.fromhex(self.private_key[2:]), data)
+        else:
+            raise ValueError("Crypto type not supported")
+
         return "0x{}".format(signature.hex())
 
     def verify(self, data, signature):
@@ -147,7 +174,15 @@ class Keypair:
         if type(signature) is not bytes:
             raise TypeError("Signature should be of type bytes or a hex-string")
 
-        return sr25519.verify(signature, data, bytes.fromhex(self.public_key[2:]))
+        if self.crypto_type == self.SR25519:
+            return sr25519.verify(signature, data, bytes.fromhex(self.public_key[2:]))
+        elif self.crypto_type == self.ED25519:
+            return ed25519.ed_verify(signature, data, bytes.fromhex(self.public_key[2:]))
+        else:
+            raise ValueError("Crypto type not supported")
+
+    def __repr__(self):
+        return '<Keypair (ss58_address={})>'.format(self.ss58_address)
 
 
 class SubstrateInterface:
@@ -250,7 +285,10 @@ class SubstrateInterface:
                 This method doesn't return but updates the `ws_result` object variable with the result
                 """
                 async with websockets.connect(
-                        self.url
+                        self.url,
+                        max_size=2**32,
+                        read_limit=2**32,
+                        write_limit=2**32,
                 ) as websocket:
                     await websocket.send(json.dumps(ws_payload))
 
@@ -729,6 +767,59 @@ class SubstrateInterface:
                 self.debug_message('Stored metadata for {} in Redis'.format(self.runtime_version))
                 self.cache_region.set('METADATA_{}'.format(self.runtime_version), self.metadata_decoder)
 
+    def iterate_map(self, module, storage_function, block_hash=None):
+        """
+        iterates over all key-pairs localted at the given module and storage_function. The storage
+        item must be a map.
+
+        Parameters
+        ----------
+        module: The module name in the metadata, e.g. Balances or Account.
+        storage_function: The storage function name, e.g. FreeBalance or AccountNonce.
+        block_hash: Optional block hash, when left to None the chain tip will be used.
+
+        Returns
+        -------
+        A two dimensional list of key-value pairs, both decoded into the given type, e.g.
+        [[k1, v1], [k2, v2], ...]
+        """
+        self.init_runtime(block_hash=block_hash)
+
+        key_type = None
+        value_type = None
+        concat_hash_len = None
+        for metadata_module in self.metadata_decoder.metadata.modules:
+            if metadata_module.name == module:
+                if metadata_module.storage:
+                    for storage_item in metadata_module.storage.items:
+                        if storage_item.name == storage_function:
+                            if 'MapType' in storage_item.type:
+                                key_type = storage_item.type['MapType']['key']
+                                value_type = storage_item.type['MapType']['value']
+                                if storage_item.type['MapType']['hasher'] == "Blake2_128Concat":
+                                    concat_hash_len = 32
+                                elif storage_item.type['MapType']['hasher'] == "Twox64Concat":
+                                    concat_hash_len = 16
+                                else:
+                                    raise ValueError('Unsupported hash type')
+                            else:
+                                raise ValueError('Given storage is not a map')
+
+        prefix = self.generate_storage_hash(module, storage_function)
+        prefix_len = len(prefix)
+        pairs = self.rpc_request(method="state_getPairs", params=[prefix, block_hash]).get('result')
+
+        # convert keys to the portion that needs to be decoded.
+        pairs = map(lambda kp: ["0x" + kp[0][prefix_len + concat_hash_len:], kp[1]], pairs)
+
+        # decode both of them
+        pairs = map(
+            lambda kp: [self.decode_scale(key_type, kp[0]), self.decode_scale(value_type, kp[1])],
+            list(pairs)
+        )
+
+        return list(pairs)
+
     def get_runtime_state(self, module, storage_function, params=None, block_hash=None):
         """
         Retrieves the storage entry for given module, function and optional parameters at given block hash
@@ -902,12 +993,15 @@ class SubstrateInterface:
         # Retrieve genesis hash
         genesis_hash = self.get_block_hash(0)
 
-        if era:
-            if era != '00':
-                # TODO implement MortalEra transactions
-                raise NotImplementedError("Mortal transactions not yet implemented")
-        else:
+        if not era:
             era = '00'
+
+        if era == '00':
+            block_hash = genesis_hash
+        else:
+            era_obj = ScaleDecoder.get_decoder_class('Era')
+            era_obj.encode(era)
+            block_hash = self.get_block_hash(block_id=era_obj.birth(era.get('current')))
 
         # Create signature payload
         signature_payload = ScaleDecoder.get_decoder_class('ExtrinsicPayloadValue')
@@ -927,7 +1021,7 @@ class SubstrateInterface:
             'tip': tip,
             'specVersion': self.runtime_version,
             'genesisHash': genesis_hash,
-            'blockHash': genesis_hash
+            'blockHash': block_hash
         }
 
         if self.transaction_version is not None:
@@ -963,12 +1057,13 @@ class SubstrateInterface:
         if not nonce:
             nonce = self.get_account_nonce(keypair.public_key) or 0
 
-        if era:
-            if era != '00':
-                # TODO implement MortalEra transactions
-                raise NotImplementedError("Mortal transactions not yet implemented")
-        else:
+        # Process era
+        if not era:
             era = '00'
+        else:
+            if isinstance(era, dict) and 'current' not in era and 'phase' not in era:
+                # Retrieve current block id
+                era['current'] = self.get_block_number(self.get_chain_finalised_head())
 
         if signature:
 
@@ -979,14 +1074,14 @@ class SubstrateInterface:
                 signature_version = int(signature[0:2], 16)
                 signature = '0x{}'.format(signature[2:])
             else:
-                signature_version = 1
+                signature_version = keypair.crypto_type
 
         else:
             # Create signature payload
             signature_payload = self.generate_signature_payload(call=call, era=era, nonce=nonce, tip=tip)
 
-            # Set Signature version to sr25519
-            signature_version = 1
+            # Set Signature version to crypto type of keypair
+            signature_version = keypair.crypto_type
 
             # Sign payload
             signature = keypair.sign(signature_payload)
@@ -1259,7 +1354,7 @@ class SubstrateInterface:
 
         """
         type_registry = self.get_type_registry(block_hash=block_hash)
-        return type_registry.get(type_string)
+        return type_registry.get(type_string.lower())
 
     def get_metadata_modules(self, block_hash=None):
         """
@@ -1808,3 +1903,10 @@ class SubstrateInterface:
             "module_name": module.name,
             "spec_version": spec_version
         }
+
+    def update_type_registry_presets(self):
+        try:
+            update_type_registries()
+            return True
+        except Exception:
+            return False
