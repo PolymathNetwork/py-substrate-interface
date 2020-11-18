@@ -15,6 +15,8 @@
 # limitations under the License.
 
 import asyncio
+from hashlib import blake2b
+
 import binascii
 import json
 import logging
@@ -30,11 +32,12 @@ from scalecodec.metadata import MetadataDecoder
 from scalecodec.type_registry import load_type_registry_preset
 from scalecodec.updater import update_type_registries
 
-from .subkey import Subkey
-from .utils.hasher import blake2_256, two_x64_concat, xxh64, xxh128, blake2_128, blake2_128_concat, identity
+from .key import extract_derive_path
+from .utils.hasher import blake2_256, two_x64_concat, xxh128, blake2_128, blake2_128_concat, identity
 from .exceptions import SubstrateRequestException, ConfigurationError, StorageFunctionNotFound
 from .constants import *
 from .utils.ss58 import ss58_decode, ss58_encode
+
 from bip39 import bip39_to_mini_secret, bip39_generate
 import sr25519
 import ed25519
@@ -43,20 +46,28 @@ import ed25519
 logger = logging.getLogger(__name__)
 
 
-class Keypair:
-
+class KeypairType:
     ED25519 = 0
     SR25519 = 1
 
-    def __init__(self, ss58_address=None, public_key=None, private_key=None, address_type=42, crypto_type=SR25519):
+
+class Keypair:
+
+    def __init__(self, ss58_address=None, public_key=None, private_key=None, address_type=42, seed_hex=None,
+                 crypto_type=KeypairType.SR25519):
 
         self.crypto_type = crypto_type
+        self.seed_hex = seed_hex
+        self.derive_path = None
 
         if ss58_address and not public_key:
             public_key = ss58_decode(ss58_address)
 
         if not public_key:
             raise ValueError('No SS58 formatted address or public key provided')
+
+        if type(public_key) is bytes:
+            public_key = public_key.hex()
 
         public_key = '0x{}'.format(public_key.replace('0x', ''))
 
@@ -70,9 +81,13 @@ class Keypair:
         self.ss58_address = ss58_address
 
         if private_key:
+
+            if type(private_key) is bytes:
+                private_key = private_key.hex()
+
             private_key = '0x{}'.format(private_key.replace('0x', ''))
 
-            if self.crypto_type == self.SR25519 and len(private_key) != 130:
+            if self.crypto_type == KeypairType.SR25519 and len(private_key) != 130:
                 raise ValueError('Secret key should be 64 bytes long')
 
         self.private_key = private_key
@@ -85,7 +100,7 @@ class Keypair:
         return bip39_generate(words)
 
     @classmethod
-    def create_from_mnemonic(cls, mnemonic, address_type=42, crypto_type=SR25519):
+    def create_from_mnemonic(cls, mnemonic, address_type=42, crypto_type=KeypairType.SR25519):
         seed_array = bip39_to_mini_secret(mnemonic, "")
 
         keypair = cls.create_from_seed(
@@ -98,11 +113,11 @@ class Keypair:
         return keypair
 
     @classmethod
-    def create_from_seed(cls, seed_hex, address_type=42, crypto_type=SR25519):
+    def create_from_seed(cls, seed_hex, address_type=42, crypto_type=KeypairType.SR25519):
 
-        if crypto_type == cls.SR25519:
+        if crypto_type == KeypairType.SR25519:
             public_key, private_key = sr25519.pair_from_seed(bytes.fromhex(seed_hex.replace('0x', '')))
-        elif crypto_type == cls.ED25519:
+        elif crypto_type == KeypairType.ED25519:
             private_key, public_key = ed25519.ed_from_seed(bytes.fromhex(seed_hex.replace('0x', '')))
         else:
             raise ValueError('crypto_type "{}" not supported'.format(crypto_type))
@@ -114,12 +129,61 @@ class Keypair:
 
         return cls(
             ss58_address=ss58_address, public_key=public_key, private_key=private_key,
-            address_type=address_type, crypto_type=crypto_type
+            address_type=address_type, crypto_type=crypto_type, seed_hex=seed_hex
         )
 
     @classmethod
+    def create_from_uri(cls, suri, address_type=42, crypto_type=KeypairType.SR25519):
+
+        if suri and suri.startswith('/'):
+            suri = DEV_PHRASE + suri
+
+        suri_regex = re.match(r'^(?P<phrase>\w+( \w+)*)(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$', suri)
+
+        suri_parts = suri_regex.groupdict()
+
+        if suri_parts['password']:
+            raise NotImplementedError("Passwords in suri not supported")
+
+        derived_keypair = cls.create_from_mnemonic(
+            suri_parts['phrase'], address_type=address_type, crypto_type=crypto_type
+        )
+
+        if suri_parts['path'] != '':
+
+            derived_keypair.derive_path = suri_parts['path']
+
+            if crypto_type not in [KeypairType.SR25519]:
+                raise NotImplementedError('Derivation paths for this crypto type not supported')
+
+            derive_junctions = extract_derive_path(suri_parts['path'])
+
+            child_pubkey = bytes.fromhex(derived_keypair.public_key[2:])
+            child_privkey = bytes.fromhex(derived_keypair.private_key[2:])
+
+            for junction in derive_junctions:
+
+                if junction.is_hard:
+
+                    _, child_pubkey, child_privkey = sr25519.hard_derive_keypair(
+                        (junction.chain_code, child_pubkey, child_privkey),
+                        b''
+                    )
+
+                else:
+
+                    _, child_pubkey, child_privkey = sr25519.derive_keypair(
+                        (junction.chain_code, child_pubkey, child_privkey),
+                        b''
+                    )
+
+            derived_keypair = Keypair(public_key=child_pubkey, private_key=child_privkey)
+
+        return derived_keypair
+
+    @classmethod
     def create_from_private_key(
-            cls, private_key, public_key=None, ss58_address=None, address_type=42, crypto_type=SR25519
+            cls, private_key, public_key=None, ss58_address=None, address_type=42, crypto_type=KeypairType.SR25519
     ):
         return cls(
             ss58_address=ss58_address, public_key=public_key, private_key=private_key,
@@ -149,13 +213,13 @@ class Keypair:
         if not self.private_key:
             raise ConfigurationError('No private key set to create signatures')
 
-        if self.crypto_type == self.SR25519:
+        if self.crypto_type == KeypairType.SR25519:
 
             signature = sr25519.sign((bytes.fromhex(self.public_key[2:]), bytes.fromhex(self.private_key[2:])), data)
-        elif self.crypto_type == self.ED25519:
+        elif self.crypto_type == KeypairType.ED25519:
             signature = ed25519.ed_sign(bytes.fromhex(self.public_key[2:]), bytes.fromhex(self.private_key[2:]), data)
         else:
-            raise ValueError("Crypto type not supported")
+            raise ConfigurationError("Crypto type not supported")
 
         return "0x{}".format(signature.hex())
 
@@ -174,12 +238,12 @@ class Keypair:
         if type(signature) is not bytes:
             raise TypeError("Signature should be of type bytes or a hex-string")
 
-        if self.crypto_type == self.SR25519:
+        if self.crypto_type == KeypairType.SR25519:
             return sr25519.verify(signature, data, bytes.fromhex(self.public_key[2:]))
-        elif self.crypto_type == self.ED25519:
+        elif self.crypto_type == KeypairType.ED25519:
             return ed25519.ed_verify(signature, data, bytes.fromhex(self.public_key[2:]))
         else:
-            raise ValueError("Crypto type not supported")
+            raise ConfigurationError("Crypto type not supported")
 
     def __repr__(self):
         return '<Keypair (ss58_address={})>'.format(self.ss58_address)
@@ -187,8 +251,7 @@ class Keypair:
 
 class SubstrateInterface:
 
-    def __init__(self, url, address_type=None, type_registry=None, type_registry_preset="default", cache_region=None,
-                 sub_key: Subkey = None):
+    def __init__(self, url, address_type=None, type_registry=None, type_registry_preset="default", cache_region=None):
         """
         A specialized class in interfacing with a Substrate node.
 
@@ -237,8 +300,6 @@ class SubstrateInterface:
 
         self.metadata_cache = {}
         self.type_registry_cache = {}
-
-        self.sub_key = sub_key
 
         self.debug = False
 
@@ -310,7 +371,14 @@ class SubstrateInterface:
                     else:
                         ws_result.update(json.loads(await websocket.recv()))
 
-            asyncio.run(ws_request(payload))
+            if hasattr(asyncio, 'run'):
+                # Python 3.7+
+                asyncio.run(ws_request(payload))
+            else:
+                # Python 3.6 compatibility
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(ws_request(payload))
+
             json_body = ws_result
 
         else:
@@ -733,7 +801,17 @@ class SubstrateInterface:
         self.block_hash = block_hash
         self.block_id = block_id
 
-        runtime_info = self.get_block_runtime_version(block_hash=self.block_hash)
+        # In fact calls and storage functions are decoded against runtime of previous block, therefor retrieve
+        # metadata and apply type registry of runtime of parent block
+        block_header = self.get_block_header(block_hash=self.block_hash) or {}
+        parent_block_hash = block_header.get('parentHash')
+
+        if parent_block_hash == '0x0000000000000000000000000000000000000000000000000000000000000000':
+            runtime_block_hash = self.block_hash
+        else:
+            runtime_block_hash = parent_block_hash
+
+        runtime_info = self.get_block_runtime_version(block_hash=runtime_block_hash)
 
         # Check if runtime state already set to current block
         if runtime_info.get("specVersion") == self.runtime_version:
@@ -757,7 +835,7 @@ class SubstrateInterface:
             self.debug_message('Retrieved metadata for {} from memory'.format(self.runtime_version))
             self.metadata_decoder = self.metadata_cache[self.runtime_version]
         else:
-            self.metadata_decoder = self.get_block_metadata(block_hash=self.block_hash, decode=True)
+            self.metadata_decoder = self.get_block_metadata(block_hash=runtime_block_hash, decode=True)
             self.debug_message('Retrieved metadata for {} from Substrate node'.format(self.runtime_version))
 
             # Update metadata cache
@@ -1029,6 +1107,9 @@ class SubstrateInterface:
 
         signature_payload.encode(payload_dict)
 
+        if signature_payload.data.length > 256:
+            return ScaleBytes(data=blake2b(signature_payload.data.data, digest_size=32).digest())
+
         return signature_payload.data
 
     def create_signed_extrinsic(self, call, keypair: Keypair, era=None, nonce=None, tip=0, signature=None):
@@ -1054,18 +1135,18 @@ class SubstrateInterface:
             raise TypeError("'call' must be of type Call")
 
         # Retrieve nonce
-        if not nonce:
+        if nonce is None:
             nonce = self.get_account_nonce(keypair.public_key) or 0
 
         # Process era
-        if not era:
+        if era is None:
             era = '00'
         else:
             if isinstance(era, dict) and 'current' not in era and 'phase' not in era:
                 # Retrieve current block id
                 era['current'] = self.get_block_number(self.get_chain_finalised_head())
 
-        if signature:
+        if signature is not None:
 
             signature = signature.replace('0x', '')
 
@@ -1173,6 +1254,49 @@ class SubstrateInterface:
             }
 
         return response
+
+    def get_payment_info(self, call, keypair):
+        """
+        Retrieves fee estimation via RPC for given extrinsic
+
+        Parameters
+        ----------
+        call Call object to estimate fees for
+        keypair Keypair of the sender, does not have to include private key because no valid signature is required
+
+        Returns
+        -------
+        Dict with payment info
+
+        E.g. {'class': 'normal', 'partialFee': 151000000, 'weight': 217238000}
+
+        """
+
+        # Check requirements
+        if not isinstance(call, GenericCall):
+            raise TypeError("'call' must be of type Call")
+
+        if not isinstance(keypair, Keypair):
+            raise TypeError("'keypair' must be of type Keypair")
+
+        # No valid signature is required for fee estimation
+        signature = '0x' + '00' * 64
+
+        # Create extrinsic
+        extrinsic = self.create_signed_extrinsic(
+            call=call,
+            keypair=keypair,
+            signature=signature
+        )
+
+        payment_info = self.rpc_request('payment_queryInfo', [str(extrinsic.data)])
+
+        # convert partialFee to int
+        if 'result' in payment_info:
+            payment_info['result']['partialFee'] = int(payment_info['result']['partialFee'])
+            return payment_info['result']
+        else:
+            raise SubstrateRequestException(payment_info['error']['message'])
 
     def process_metadata_typestring(self, type_string):
         """
@@ -1776,7 +1900,7 @@ class SubstrateInterface:
             storage_dict["type_key1"] = type_info["key1"]
             storage_dict["type_key2"] = type_info["key2"]
             storage_dict["type_hasher_key1"] = type_info["hasher"]
-            storage_dict["type_hasher_key1"] = type_info["key2Hasher"]
+            storage_dict["type_hasher_key2"] = type_info["key2Hasher"]
 
         if storage_item.fallback != '0x00':
             # Decode fallback
