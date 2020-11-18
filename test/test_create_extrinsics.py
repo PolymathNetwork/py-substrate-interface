@@ -48,7 +48,7 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
     def test_compatibility_kusama_runtime(self):
         type_reg = load_type_registry_preset("kusama")
 
-        runtime_data = self.polkadot_substrate.rpc_request('state_getRuntimeVersion', [])
+        runtime_data = self.kusama_substrate.rpc_request('state_getRuntimeVersion', [])
         self.assertLessEqual(
             runtime_data['result']['specVersion'], type_reg.get('runtime_id'), 'Current runtime is incompatible'
         )
@@ -117,7 +117,7 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
                 self.assertEqual(e.args[0]['data'], 'Inability to pay some fees (e.g. account balance too low)')
 
     def test_create_unsigned_extrinsic(self):
-        
+
         call = self.kusama_substrate.compose_call(
             call_module='Timestamp',
             call_function='set',
@@ -128,6 +128,53 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
 
         extrinsic = self.kusama_substrate.create_unsigned_extrinsic(call)
         self.assertEqual(str(extrinsic.data), '0x280402000ba09cc0317501')
+
+    def test_payment_info(self):
+        keypair = Keypair(ss58_address="EaG2CRhJWPb7qmdcJvy3LiWdh26Jreu9Dx6R1rXxPmYXoDk")
+
+        call = self.kusama_substrate.compose_call(
+            call_module='Balances',
+            call_function='transfer',
+            call_params={
+                'dest': 'EaG2CRhJWPb7qmdcJvy3LiWdh26Jreu9Dx6R1rXxPmYXoDk',
+                'value': 2 * 10 ** 3
+            }
+        )
+        payment_info = self.kusama_substrate.get_payment_info(call=call, keypair=keypair)
+
+        self.assertIn('class', payment_info)
+        self.assertIn('partialFee', payment_info)
+        self.assertIn('weight', payment_info)
+
+        self.assertGreater(payment_info['partialFee'], 0)
+
+    def test_generate_signature_payload_lte_256_bytes(self):
+
+        call = self.kusama_substrate.compose_call(
+            call_module='System',
+            call_function='remark',
+            call_params={
+                '_remark': '0x' + ('01' * 177)
+            }
+        )
+
+        signature_payload = self.kusama_substrate.generate_signature_payload(call=call)
+
+        self.assertEqual(signature_payload.length, 256)
+
+    def test_generate_signature_payload_gt_256_bytes(self):
+
+        call = self.kusama_substrate.compose_call(
+            call_module='System',
+            call_function='remark',
+            call_params={
+                '_remark': '0x' + ('01' * 178)
+            }
+        )
+
+        signature_payload = self.kusama_substrate.generate_signature_payload(call=call)
+
+        self.assertEqual(signature_payload.length, 32)
 
 
 if __name__ == '__main__':

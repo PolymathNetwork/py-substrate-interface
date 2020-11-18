@@ -221,23 +221,91 @@ if keypair.verify("Test123", signature):
 By default a keypair is using SR25519 cryptography, alternatively ED25519 can be explictly specified:
 
 ```python
-keypair = Keypair.create_from_mnemonic(mnemonic, crypto_type=Keypair.ED25519)
+keypair = Keypair.create_from_mnemonic(mnemonic, crypto_type=KeypairType.ED25519)
 ```
 
-### Create keypair using Subkey wrapper (using local subkey binary)
+### Creating keypairs with soft and hard key derivation paths
 
 ```python
-sub_key = Subkey(subkey_path='/usr/local/bin/subkey')
-subkey_result = sub_key.inspect(network='kusama', suri="appear fortune produce assist volcano deal shoulder foot engine harvest pupil agent//Alice")
-keypair = Keypair.create_from_seed(subkey_result["secretSeed"], address_type=2)
+mnemonic = Keypair.generate_mnemonic()
+keypair = Keypair.create_from_uri(mnemonic + '//hard/soft')
 ```
 
-### Create keypair using Subkey wrapper (using Docker image parity/subkey:latest)
+By omitting the mnemonic the default development mnemonic is used: 
 
 ```python
-sub_key = Subkey(use_docker=True)
-subkey_result = sub_key.inspect(network='kusama', suri="appear fortune produce assist volcano deal shoulder foot engine harvest pupil agent//Alice")
-keypair = Keypair.create_from_seed(subkey_result["secretSeed"], address_type=2)
+keypair = Keypair.create_from_uri('//Alice')
+```
+
+### Getting estimate of network fees for extrinsic in advance
+
+```python
+keypair = Keypair(ss58_address="EaG2CRhJWPb7qmdcJvy3LiWdh26Jreu9Dx6R1rXxPmYXoDk")
+
+call = self.kusama_substrate.compose_call(
+    call_module='Balances',
+    call_function='transfer',
+    call_params={
+        'dest': 'EaG2CRhJWPb7qmdcJvy3LiWdh26Jreu9Dx6R1rXxPmYXoDk',
+        'value': 2 * 10 ** 3
+    }
+)
+payment_info = self.kusama_substrate.get_payment_info(call=call, keypair=keypair)
+```
+
+### Offline signing of extrinsics
+
+This example generates a signature payload which can be signed on another (offline) machine and later on sent to the 
+network with the generated signature.
+
+Generate signature payload on online machine:
+```python
+substrate = SubstrateInterface(
+    url="http://127.0.0.1:9933",
+    address_type=42,
+    type_registry_preset='substrate-node-template',
+)
+
+call = substrate.compose_call(
+    call_module='Balances',
+    call_function='transfer',
+    call_params={
+        'dest': '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        'value': 2 * 10**8
+    }
+)
+
+era = {'period': 64, 'current': 22719}
+nonce = 0
+
+signature_payload = substrate.generate_signature_payload(call=call, era=era, nonce=nonce)
+```
+
+Then on another (offline) machine generate the signature with given `signature_payload`:
+
+```python
+keypair = Keypair.create_from_mnemonic("nature exchange gasp toy result bacon coin broccoli rule oyster believe lyrics")
+signature = keypair.sign(signature_payload)
+```
+
+Finally on the online machine send the extrinsic with generated signature:
+
+```python
+keypair = Keypair(ss58_address="5EChUec3ZQhUvY1g52ZbfBVkqjUY9Kcr6mcEvQMbmd38shQL")
+
+extrinsic = substrate.create_signed_extrinsic(
+    call=call,
+    keypair=keypair,
+    era=era,
+    nonce=nonce,
+    signature=signature
+)
+
+result = substrate.submit_extrinsic(
+    extrinsic=extrinsic
+)
+
+print(result['extrinsic_hash'])
 ```
 
 ### Metadata and type versioning
