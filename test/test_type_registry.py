@@ -36,14 +36,14 @@ class KusamaTypeRegistryTestCase(unittest.TestCase):
             address_type=2,
             type_registry_preset='kusama'
         )
-"""
-    def test_type_registry_compatibility(self):
 
+    """
+    def test_type_registry_compatibility(self):
         for scale_type in self.substrate.get_type_registry():
             obj = RuntimeConfiguration().get_decoder_class(scale_type)
 
             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
-"""
+    """
 
 class PolkadotTypeRegistryTestCase(unittest.TestCase):
 
