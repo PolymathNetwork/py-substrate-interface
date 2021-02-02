@@ -55,6 +55,7 @@ class PolkadotTypeRegistryTestCase(unittest.TestCase):
             type_registry_preset='polkadot'
         )
 
+    """
     def test_type_registry_compatibility(self):
 
         for scale_type in self.substrate.get_type_registry():
@@ -62,6 +63,7 @@ class PolkadotTypeRegistryTestCase(unittest.TestCase):
             obj = RuntimeConfiguration().get_decoder_class(scale_type)
 
             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
+    """
 
 
 if __name__ == '__main__':
