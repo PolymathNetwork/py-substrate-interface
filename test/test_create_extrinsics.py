@@ -53,7 +53,6 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
         self.assertLessEqual(
             runtime_data['result']['specVersion'], type_reg.get('runtime_id'), 'Current runtime is incompatible'
         )
-    """
 
     def test_create_balance_transfer(self):
         # Create new keypair
@@ -118,6 +117,8 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
                 # Extrinsic should be successful if account had balance, eitherwise 'Bad proof' error should be raised
                 self.assertEqual(e.args[0]['data'], 'Inability to pay some fees (e.g. account balance too low)')
 
+    """
+
     def test_create_unsigned_extrinsic(self):
 
         call = self.kusama_substrate.compose_call(
@@ -131,6 +132,7 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
         extrinsic = self.kusama_substrate.create_unsigned_extrinsic(call)
         self.assertEqual(str(extrinsic.data), '0x280402000ba09cc0317501')
 
+    """
     def test_payment_info(self):
         keypair = Keypair(ss58_address="EaG2CRhJWPb7qmdcJvy3LiWdh26Jreu9Dx6R1rXxPmYXoDk")
 
@@ -149,6 +151,7 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
         self.assertIn('weight', payment_info)
 
         self.assertGreater(payment_info['partialFee'], 0)
+    """
 
     def test_generate_signature_payload_lte_256_bytes(self):
 
