@@ -118,6 +118,7 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
                 self.assertEqual(e.args[0]['data'], 'Inability to pay some fees (e.g. account balance too low)')
 
     """
+    """
 
     def test_create_unsigned_extrinsic(self):
 
@@ -132,6 +133,7 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
         extrinsic = self.kusama_substrate.create_unsigned_extrinsic(call)
         self.assertEqual(str(extrinsic.data), '0x280402000ba09cc0317501')
 
+    """
     """
     def test_payment_info(self):
         keypair = Keypair(ss58_address="EaG2CRhJWPb7qmdcJvy3LiWdh26Jreu9Dx6R1rXxPmYXoDk")
@@ -153,6 +155,7 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
         self.assertGreater(payment_info['partialFee'], 0)
     """
 
+    """
     def test_generate_signature_payload_lte_256_bytes(self):
 
         call = self.kusama_substrate.compose_call(
@@ -180,6 +183,7 @@ class CreateExtrinsicsTestCase(unittest.TestCase):
         signature_payload = self.kusama_substrate.generate_signature_payload(call=call)
 
         self.assertEqual(signature_payload.length, 32)
+    """
 
 
 if __name__ == '__main__':
