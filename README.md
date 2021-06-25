@@ -1,14 +1,14 @@
-# Python Substrate Interface
+#### This project is forked from https://github.com/polkascan/py-substrate-interface
 
-[![Build Status](https://img.shields.io/github/workflow/status/polkascan/py-substrate-interface/Run%20unit%20tests)](https://github.com/polkascan/py-substrate-interface/actions?query=workflow%3A%22Run+unit+tests%22)
-[![Latest Version](https://img.shields.io/pypi/v/substrate-interface.svg)](https://pypi.org/project/substrate-interface/)
-[![Supported Python versions](https://img.shields.io/pypi/pyversions/substrate-interface.svg)](https://pypi.org/project/substrate-interface/)
-[![License](https://img.shields.io/pypi/l/substrate-interface.svg)](https://github.com/polkascan/py-substrate-interface/blob/master/LICENSE)
+# Python Polymath Substrate Interface
 
-Python Substrate Interface Library
+[![Latest Version](https://img.shields.io/pypi/v/polymath-substrate-interface.svg)](https://pypi.org/project/polymath-substrate-interface/)
+[![Supported Python versions](https://img.shields.io/pypi/pyversions/polymath-substrate-interface.svg)](https://pypi.org/project/polymath-substrate-interface/)
+
+Python Polymath Substrate Interface Library
 
 ## Description
-This library specializes in interfacing with a Substrate node, providing additional convenience methods to deal with
+This library specializes in interfacing with a Polymesh node, providing additional convenience methods to deal with
 SCALE encoding/decoding (the default output and input format of the Substrate JSONRPC), metadata parsing, type registry
 management and versioning of types.
 
@@ -40,62 +40,18 @@ management and versioning of types.
 * [License](#license)
 
 ## Documentation
+
 https://polkascan.github.io/py-substrate-interface/
 
 ## Installation
+
 ```bash
-pip install substrate-interface
+pip install polymath-substrate-interface
 ```
 
 ## Initialization
 
-The following examples show how to initialize for supported chains:
-
-### Autodiscover mode
-
-```python
-substrate = SubstrateInterface(
-    url="wss://rpc.polkadot.io"
-)
-```
-
-When only an `url` is provided, it tries to determine certain properties like `ss58_format` and 
-`type_registry_preset` automatically by calling the RPC method `system_properties`. 
-
-At the moment this will work for Polkadot, Kusama, Kulupu and Westend nodes, for other chains the `ss58_format` 
-(default 42) and  `type_registry` (defaults to latest vanilla Substrate types) should be set manually. 
-
-### Manually set required properties
-
-Polkadot
-
-```python
-substrate = SubstrateInterface(
-    url="wss://rpc.polkadot.io",
-    ss58_format=0,
-    type_registry_preset='polkadot'
-)
-```
-
-Kusama
-
-```python
-substrate = SubstrateInterface(
-    url="wss://kusama-rpc.polkadot.io/",
-    ss58_format=2,
-    type_registry_preset='kusama'
-)
-```
-
-Rococo
-
-```python
-substrate = SubstrateInterface(
-    url="wss://rococo-rpc.polkadot.io",
-    ss58_format=42,
-    type_registry_preset='rococo'
-)
-```
+The following examples show how to initialize for Polymesh chain:
 
 Westend
 
@@ -152,9 +108,18 @@ substrate = SubstrateInterface(
  
 ```
 
-## Features
+## Keeping type registry presets up to date
 
-### Retrieve extrinsics for a certain block
+When on-chain runtime upgrades occur, types used in call- or storage functions can be added or modified. Therefor it is
+important to keep the type registry presets up to date. At the moment the type registry for Polymesh is being actively maintained for this library and an check and update procedure can be triggered with:
+ 
+```python
+substrate.update_type_registry_presets()
+```   
+
+## Examples
+
+### Get extrinsics for a certain block
 
 ```python
 # Set block_hash to None for chaintip
@@ -611,4 +576,5 @@ To check for updates after instantiating the `substrate` object, using `substrat
 the most recent type registry preset from Github and apply changes to current object.  
 
 ## License
-https://github.com/polkascan/py-substrate-interface/blob/master/LICENSE
+
+https://github.com/PolymathNetwork/py-substrate-interface/blob/master/LICENSE

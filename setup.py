@@ -64,7 +64,7 @@ setup(
     # There are some restrictions on what makes a valid project name
     # specification here:
     # https://packaging.python.org/specifications/core-metadata/#name
-    name='substrate-interface',  # Required
+    name='polymath-substrate-interface',  # Required
 
     # Versions should comply with PEP 440:
     # https://www.python.org/dev/peps/pep-0440/
@@ -77,7 +77,7 @@ setup(
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#summary
-    description='Library for interfacing with a Substrate node',  # Optional
+    description='Library for interfacing with a Polymesh node',  # Optional
 
     # This is an optional longer description of your project that represents
     # the body of text which users will see when they visit PyPI.
@@ -109,11 +109,11 @@ setup(
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='Stichting Polkascan (Polkascan Foundation)',  # Optional
+    author='Polymath',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='info@polkascan.org',  # Optional
+    # author_email='',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #
@@ -136,7 +136,6 @@ setup(
         # These classifiers are *not* checked by 'pip install'. See instead
         # 'python_requires' below.
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
@@ -146,7 +145,7 @@ setup(
     # project page. What does your project relate to?
     #
     # Note that this is a string of words separated by whitespace, not a list.
-    keywords='interface polkascan polkadot substrate blockchain rpc kusama',  # Optional
+    keywords='interface polkascan polkadot substrate blockchain rpc polymesh',  # Optional
 
     # You can just specify package directories manually here if your project is
     # simple. Or you can use find_packages().
@@ -167,7 +166,7 @@ setup(
     # https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
 
     #python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4',
-    python_requires='>=3.6, <4',
+    python_requires='>=3.7, <4',
 
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
@@ -182,7 +181,7 @@ setup(
         'idna>=2.8',
         'requests~=2.25.1',
         'xxhash>=1.3.0',
-        'scalecodec~=0.11.11',
+        'polymath-scalecodec~=4.0.0',
         'py-sr25519-bindings~=0.1.2',
         'py-ed25519-bindings~=0.1.2',
         'py-bip39-bindings~=0.1.6'

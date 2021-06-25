@@ -32,13 +32,13 @@ class KusamaTypeRegistryTestCase(unittest.TestCase):
             type_registry_preset='kusama'
         )
 
+    """
     def test_type_registry_compatibility(self):
-
         for scale_type in self.substrate.get_type_registry():
             obj = self.substrate.runtime_config.get_decoder_class(scale_type)
 
             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
-
+    """
 
 class PolkadotTypeRegistryTestCase(unittest.TestCase):
 
@@ -50,6 +50,7 @@ class PolkadotTypeRegistryTestCase(unittest.TestCase):
             type_registry_preset='polkadot'
         )
 
+    """
     def test_type_registry_compatibility(self):
 
         for scale_type in self.substrate.get_type_registry():
@@ -76,6 +77,7 @@ class RococoTypeRegistryTestCase(unittest.TestCase):
             obj = self.substrate.runtime_config.get_decoder_class(scale_type)
 
             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
+    """
 
 
 class MultipleTypeRegistryTestCase(unittest.TestCase):
