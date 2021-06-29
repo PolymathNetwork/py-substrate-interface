@@ -16,8 +16,11 @@
 
 import unittest
 
+from substrateinterface.constants import DEV_PHRASE
+from substrateinterface.key import extract_derive_path
+from substrateinterface.exceptions import ConfigurationError
 from scalecodec import ScaleBytes
-from substrateinterface import Keypair, KeypairType, extract_derive_path, ConfigurationError, DEV_PHRASE
+from substrateinterface import Keypair, KeypairType
 from bip39 import bip39_validate
 
 
@@ -33,7 +36,7 @@ class KeyPairTestCase(unittest.TestCase):
 
     def test_create_sr25519_keypair(self):
         mnemonic = "old leopard transfer rib spatial phone calm indicate online fire caution review"
-        keypair = Keypair.create_from_mnemonic(mnemonic, address_type=0)
+        keypair = Keypair.create_from_mnemonic(mnemonic, ss58_format=0)
 
         self.assertEqual(keypair.ss58_address, "16ADqpMa4yzfmWs3nuTSMhfZ2ckeGtvqhPWCNqECEGDcGgU2")
 
@@ -46,7 +49,7 @@ class KeyPairTestCase(unittest.TestCase):
 
         keypair = Keypair(
             public_key='0xe4359ad3e2716c539a1d663ebd0a51bdc5c98a12e663bb4c4402db47828c9446',
-            address_type=0
+            ss58_format=0
         )
         self.assertEqual(keypair.ss58_address, '16ADqpMa4yzfmWs3nuTSMhfZ2ckeGtvqhPWCNqECEGDcGgU2')
 
@@ -122,9 +125,9 @@ class KeyPairTestCase(unittest.TestCase):
 
     def test_create_ed25519_keypair(self):
         mnemonic = "old leopard transfer rib spatial phone calm indicate online fire caution review"
-        keypair = Keypair.create_from_mnemonic(mnemonic, address_type=0, crypto_type=KeypairType.ED25519)
+        keypair = Keypair.create_from_mnemonic(mnemonic, ss58_format=0, crypto_type=KeypairType.ED25519)
 
-        self.assertEqual(keypair.ss58_address, "16dYRUXznyhvWHS1ktUENGfNAEjCawyDzHRtN9AdFnJRc38h")
+        self.assertEqual("16dYRUXznyhvWHS1ktUENGfNAEjCawyDzHRtN9AdFnJRc38h", keypair.ss58_address)
 
     def test_sign_and_verify_ed25519(self):
         mnemonic = Keypair.generate_mnemonic()
@@ -178,6 +181,15 @@ class KeyPairTestCase(unittest.TestCase):
         derived_keypair = Keypair.create_from_uri(derivation_path)
 
         self.assertEqual(derivation_address, derived_keypair.ss58_address)
+
+    def test_hdkd_create_uri_correct_ss58format(self):
+        derivation_address = 'HNZata7iMYWmk5RvZRTiAsSDhV8366zq2YGb3tLH5Upf74F'
+        derivation_path = '//Alice'
+
+        derived_keypair = Keypair.create_from_uri(derivation_path, ss58_format=2)
+
+        self.assertEqual(derived_keypair.ss58_format, 2)
+        self.assertEqual(derived_keypair.ss58_address, derivation_address)
 
     def test_hdkd_nested_hard_soft_path(self):
         derivation_address = '5CJGwWiKXSE16WJaxBdPZhWqUYkotgenLUALv7ZvqQ4TXeqf'

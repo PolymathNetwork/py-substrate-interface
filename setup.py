@@ -138,6 +138,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
 
     # This field adds keywords for your project which will appear on the
@@ -174,19 +175,16 @@ setup(
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'websockets>=8.1',
-        'base58>=2.0.1',
-        'certifi>=2019.6.16',
-        'chardet>=3.0.4',
-        'docker>=4.2.0',
+        'websocket-client~=0.58.0',
+        'base58~=2.0.1',
+        'certifi>=2020.11.8',
         'idna>=2.8',
-        'requests>=2.24.0',
-        'urllib3>=1.25.10',
+        'requests~=2.25.1',
         'xxhash>=1.3.0',
-        'polymath-scalecodec==3.1.0',
-        'py-sr25519-bindings>=0.1.2',
-        'py-ed25519-bindings>=0.1.1',
-        'py-bip39-bindings>=0.1.6'
+        'polymath-scalecodec~=4.0.0',
+        'py-sr25519-bindings~=0.1.2',
+        'py-ed25519-bindings~=0.1.2',
+        'py-bip39-bindings~=0.1.6'
     ],
 
     # List additional groups of dependencies here (e.g. development

@@ -14,16 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import sys
-
-sys.path.append(os.path.abspath('../../py-scale-codec'))
-
 import unittest
 
-from scalecodec.base import RuntimeConfiguration, ScaleType
+from scalecodec.base import ScaleBytes
 
-from substrateinterface import SubstrateInterface, Keypair, SubstrateRequestException
+from substrateinterface import SubstrateInterface
 from test import settings
 
 
@@ -33,14 +28,14 @@ class KusamaTypeRegistryTestCase(unittest.TestCase):
     def setUpClass(cls):
         cls.substrate = SubstrateInterface(
             url=settings.KUSAMA_NODE_URL,
-            address_type=2,
+            ss58_format=2,
             type_registry_preset='kusama'
         )
 
     """
     def test_type_registry_compatibility(self):
         for scale_type in self.substrate.get_type_registry():
-            obj = RuntimeConfiguration().get_decoder_class(scale_type)
+            obj = self.substrate.runtime_config.get_decoder_class(scale_type)
 
             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
     """
@@ -51,7 +46,7 @@ class PolkadotTypeRegistryTestCase(unittest.TestCase):
     def setUpClass(cls):
         cls.substrate = SubstrateInterface(
             url=settings.POLKADOT_NODE_URL,
-            address_type=0,
+            ss58_format=0,
             type_registry_preset='polkadot'
         )
 
@@ -60,10 +55,104 @@ class PolkadotTypeRegistryTestCase(unittest.TestCase):
 
         for scale_type in self.substrate.get_type_registry():
 
-            obj = RuntimeConfiguration().get_decoder_class(scale_type)
+            obj = self.substrate.runtime_config.get_decoder_class(scale_type)
+
+            self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
+
+
+class RococoTypeRegistryTestCase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.substrate = SubstrateInterface(
+            url=settings.ROCOCO_NODE_URL,
+            ss58_format=42,
+            type_registry_preset='rococo'
+        )
+
+    def test_type_registry_compatibility(self):
+
+        for scale_type in self.substrate.get_type_registry():
+
+            obj = self.substrate.runtime_config.get_decoder_class(scale_type)
 
             self.assertIsNotNone(obj, '{} not supported'.format(scale_type))
     """
+
+
+class MultipleTypeRegistryTestCase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.polkadot_substrate = SubstrateInterface(
+            url=settings.POLKADOT_NODE_URL,
+            ss58_format=0,
+            type_registry_preset='polkadot',
+            type_registry={
+                'types': {
+                    'TestType': 'u8'
+                }
+            }
+        )
+
+        cls.kusama_substrate = SubstrateInterface(
+            url=settings.KUSAMA_NODE_URL,
+            ss58_format=2,
+            type_registry_preset='kusama',
+            type_registry={
+                'types': {
+                    'TestType': 'u16'
+                }
+            }
+        )
+
+    def test_correct_type_registry_persists(self):
+        self.assertEqual(self.kusama_substrate.encode_scale('TestType', 16), ScaleBytes('0x1000'))
+        self.assertEqual(self.polkadot_substrate.encode_scale('TestType', 16), ScaleBytes('0x10'))
+
+
+class ReloadTypeRegistryTestCase(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.substrate = SubstrateInterface(
+            url='dummy',
+            ss58_format=42,
+            type_registry_preset='test'
+        )
+
+    def test_initial_correct_type_local(self):
+        decoding_class = self.substrate.runtime_config.type_registry['types']['blocknumber']
+        self.assertEqual(self.substrate.runtime_config.get_decoder_class('u64'), decoding_class)
+
+    def test_reloading_use_remote_preset(self):
+
+        # Intentionally overwrite type in local preset
+        u32_cls = self.substrate.runtime_config.get_decoder_class('u32')
+        u64_cls = self.substrate.runtime_config.get_decoder_class('u64')
+
+        self.substrate.runtime_config.type_registry['types']['blocknumber'] = u32_cls
+
+        self.assertEqual(u32_cls, self.substrate.runtime_config.get_decoder_class('BlockNumber'))
+
+        # Reload type registry
+        self.substrate.reload_type_registry()
+
+        self.assertEqual(u64_cls, self.substrate.runtime_config.get_decoder_class('BlockNumber'))
+
+    def test_reloading_use_local_preset(self):
+
+        # Intentionally overwrite type in local preset
+        u32_cls = self.substrate.runtime_config.get_decoder_class('u32')
+        u64_cls = self.substrate.runtime_config.get_decoder_class('u64')
+
+        self.substrate.runtime_config.type_registry['types']['blocknumber'] = u32_cls
+
+        self.assertEqual(u32_cls, self.substrate.runtime_config.get_decoder_class('BlockNumber'))
+
+        # Reload type registry
+        self.substrate.reload_type_registry(use_remote_preset=False)
+
+        self.assertEqual(u64_cls, self.substrate.runtime_config.get_decoder_class('BlockNumber'))
 
 
 if __name__ == '__main__':
